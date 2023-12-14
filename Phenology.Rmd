@@ -1,0 +1,217 @@
+---
+title: "Phenology_Investigation"
+author: "Kate Becker"
+date: "2023-12-14"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# About
+
+Phenology can be described as the study of cyclic and seasonal natural phenomena particulary in relation to climate, plant life, and animal life. The blooming of spring flowers, the changing color of leaves, and the migration of birds moving south for the winter are just a few examples showcasing phenology at play. Applications can include: the management of invasive species, the optimiazation of fertilizing, planting, and the harvesting of crops. understanding the timing of ecosystem processes, such as carbon cycling, and the assessment of the vulnerability of species, populations, and ecological communities to ongoing climate change. In this analysis we will focus on the last concept, studying the shifts in phenology to better understand how and if ecosystems are adjusting to climate change.
+
+Three important phenological strategies include:
+
+-   Winter deciduous: lose leaves in the winter, grow new leaves in the spring
+
+-   Drought deciduous: lose leaves in the summer when water is limited
+
+-   Evergreen: maintain leaves year round
+
+# Analysisand short wave infrared portions of the spectrum. 
+
+#### For further information regarding the data, workflow, and reproducibility see Github link below: 
+
+<https://github.com/kateebeckerr/Phenology_Investigation>
+
+## Data 
+
+**Landsat Operational Land Imager7 (OLI sensor):**
+THe Operation Land Imager (OLI) measures in the visible, near infrared portions of the spectrum. Its images have 15-meter (49 ft.) panchromatic and 30-meter multi-spectral spatial resolutions along a 185 km (115 miles) wide swath, covering wide areas of the Earth’s landscape while providing sufficient resolution to distinguish features like urban centers, farms, forests and other land use.
+
+8 tif images:
+  - landsat_20180612.tif
+  - landsat_20180815.tif
+  - landsat_20181018.tif
+  - landsat_20181103.tif
+  - landsat_20190122.tif
+  - landsat_20190223.tif
+  - landsat_20190412.tif
+  - landsat_20190701.tif
+  
+  All data was pre processed:
+- Level 2 surface reflectance products
+- Erroneous values set to NA
+- Scale factor set to 100
+- Bands 2-7
+- Dates written into filenname
+
+**Study sites**
+Polygons representing the study sites (character string with plant type). The shapefile contains geometry information, defining the shape and location of geographic features.
+
+Shape file:
+  - study_sites.shp
+  
+
+# Workflow 
+
+## Relevant Libraries 
+```{r}
+library(terra)
+library(sf)
+library(dplyr)
+library(tidyr)
+library(stringr)
+library(ggplot2)
+library(here)
+library(tmap)
+library(cowplot)
+
+rm(list = ls())
+here::i_am("Phenology.Rmd")
+```
+
+## Data Read In
+### Landsat
+```{r}
+landsat_20180612 <-rast(here("data", "landsat", "landsat_20180612.tif"))
+landsat_20180815 <- rast(here("data", "landsat", "landsat_20180815.tif"))
+landsat_20181018 <- rast(here("data", "landsat", "landsat_20181018.tif"))
+landsat_20181103 <- rast(here("data", "landsat", "landsat_20181103.tif"))
+landsat_20190122 <- rast(here("data", "landsat", "landsat_20190122.tif"))
+landsat_20190223 <- rast(here("data", "landsat", "landsat_20190223.tif"))
+landsat_20190412 <- rast(here("data", "landsat", "landsat_20190412.tif"))
+landsat_20190701 <- rast(here("data", "landsat", "landsat_20190701.tif"))
+```
+
+### Shapefile 
+```{r}
+sites <- st_read(here("data","study_sites","study_sites.shp"))
+```
+### Appraoch: 
+
+
+## Normal Difference Vegeation Index (NDVI)
+Creating an NDVI computes the difference in reflectance in the near infrared and red bands, normalized by their sum. Further, it quantifies vegetation greenness and is useful in understanding vegetation density and assessing changes in plant health.Here will define a function to calculate the NDVI for our 8 scences. 
+
+### Function
+```{r}
+ndvi_function = function(nir, red){
+  (nir - red) / (nir + red)
+}
+```
+
+### Employing Function to Calcualte NDVI for Each Scene
+
+#### Updating the names of the layers to match the spectral bands they correspond to. These bands are part of the electromagnetic spectrum, and different bands are sensitive to different wavelengths of light
+
+NIR: Near infrared 
+  Interacts differently with various types of surfaces. Vegetation, for example, reflects a significant amount of near-infrared light, making NIR data useful in applications related to vegetation health, land cover mapping, and agriculture monitoring.
+  
+SWIR1: Short Wave Infrared 1
+  Used for detecting differences in mineral composition, soil types, and geological features. 
+SWIR2: Short Wave Infrared 2
+
+ Used for mineral and vegetation analysis. Different materials absorb and reflect SWIR2 radiation in distinct ways, allowing scientists and researchers to distinguish between surface features based on their spectral responses
+
+
+```{r}
+names(landsat_20180612) <- c("blue", "green", "red", "NIR", "SWIR1", "SWIR2")
+names(landsat_20180815) <- c("blue", "green", "red", "NIR", "SWIR1", "SWIR2")
+names(landsat_20181018) <- c("blue", "green", "red", "NIR", "SWIR1", "SWIR2")
+names(landsat_20181103) <- c("blue", "green", "red", "NIR", "SWIR1", "SWIR2")
+names(landsat_20190122) <- c("blue", "green", "red", "NIR", "SWIR1", "SWIR2")
+names(landsat_20190223) <- c("blue", "green", "red", "NIR", "SWIR1", "SWIR2")
+names(landsat_20190412) <- c("blue", "green", "red", "NIR", "SWIR1", "SWIR2")
+names(landsat_20190701) <- c("blue", "green", "red", "NIR", "SWIR1", "SWIR2")
+
+```
+
+#### Using the function to compute NDVI for each layer 
+```{r}
+ndvi_20180612 <- lapp(landsat_20180612[[c(4, 3)]], fun = ndvi_function)
+ndvi_20180815 <- lapp(landsat_20180815[[c(4, 3)]], fun = ndvi_function)
+ndvi_20181018 <- lapp(landsat_20181018[[c(4, 3)]], fun = ndvi_function)
+ndvi_20181103 <- lapp(landsat_20181103[[c(4, 3)]], fun = ndvi_function)
+ndvi_20190122 <- lapp(landsat_20190122[[c(4, 3)]], fun = ndvi_function)
+ndvi_20190223 <- lapp(landsat_20190223[[c(4, 3)]], fun = ndvi_function)
+ndvi_20190412 <- lapp(landsat_20190412[[c(4, 3)]], fun = ndvi_function)
+ndvi_20190701 <- lapp(landsat_20190701[[c(4, 3)]], fun = ndvi_function)
+
+```
+
+#### Combing Layers and Renaming 
+```{r}
+NDVI <- c(ndvi_20180612,
+              ndvi_20180815,
+              ndvi_20181018,
+              ndvi_20181103,
+              ndvi_20190122,
+              ndvi_20190223,
+              ndvi_20190412,
+              ndvi_20190701)
+
+names(NDVI) <- c("2018-06-12",
+                     "2018-08-15",
+                     "2018-10-18",
+                     "2018-11-03",
+                     "2019-01-22",
+                     "2019-02-23",
+                     "2019-04-12",
+                     "2019-07-01")
+
+```
+
+
+### Visualizing changes in NDVI
+
+Using the NDVI values for each day in conjunction with the differing study sites, we can investigate the phenology of differing plant communities.
+
+#### Study sites on a single NDVI layer
+```{r}
+tm_shape(NDVI[[1]]) +
+  tm_raster() +
+  tm_shape(sites) +
+  tm_polygons()
+```
+### Visualising the average NDVI for each site
+
+Calculating and binding average NDVI to each study site
+```{r}
+NDVIsites <- terra::extract(NDVI, sites, fun = "mean")
+binded_sites <- cbind(sites, NDVIsites)
+sites_clean <- binded_sites %>%
+  st_drop_geometry() %>%
+  select(-ID) %>%
+  pivot_longer(!study_site) %>%
+  rename("NDVI" = value) %>%
+  mutate("year" = str_sub(name, 2, 5),
+         "month" = str_sub(name, 7, 8),
+         "day" = str_sub(name, -2, -1)) %>%
+  unite("date", 4:6, sep = "-") %>%
+  mutate("date" = lubridate::as_date(date))
+```
+
+### Visualization 
+```{r}
+ggplot(sites_clean,
+       aes(x = date, y = NDVI,
+           group = study_site, col = study_site)) +
+  scale_color_manual(values = c("#955309", "#315C2B", "#09951e", "#2c3a2e","#60a36a")) +
+  geom_line() +
+  theme_minimal() +
+  labs(x = "Date", y = "Normalized Difference Vegetation Index (NDVI)", col = "Vegetation Type",
+       title = "Seasonality of Vegetation Productivity") 
+```
+
+
+# Findings
+
+```{r}
+
+```
+
+*This analysis is based on research developed by Chris Kibler
