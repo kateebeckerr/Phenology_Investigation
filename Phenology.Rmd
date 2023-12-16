@@ -208,10 +208,4 @@ ggplot(sites_clean,
 ```
 
 
-# Findings
-
-```{r}
-
-```
-
 *This analysis is based on research developed by Chris Kibler
